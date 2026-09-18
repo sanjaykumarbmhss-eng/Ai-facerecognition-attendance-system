@@ -1,0 +1,309 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Login - Face Recognition Attendance System</title>
+    <!-- Google Fonts -->
+    <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    <!-- Font Awesome -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    
+    <style>
+        :root {
+            --bg-gradient: linear-gradient(135deg, #0f172a 0%, #1e1b4b 50%, #311042 100%);
+            --glass-bg: rgba(255, 255, 255, 0.03);
+            --glass-border: rgba(255, 255, 255, 0.08);
+            --accent-primary: #6366f1;
+            --accent-secondary: #d946ef;
+            --text-main: #f8fafc;
+            --text-muted: #94a3b8;
+        }
+
+        * {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+            font-family: 'Outfit', sans-serif;
+        }
+
+        body {
+            background: var(--bg-gradient);
+            min-height: 100vh;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            color: var(--text-main);
+            overflow: hidden;
+            position: relative;
+        }
+
+        /* Decorative background blobs */
+        body::before, body::after {
+            content: '';
+            position: absolute;
+            width: 300px;
+            height: 300px;
+            border-radius: 50%;
+            background: var(--accent-primary);
+            filter: blur(120px);
+            z-index: 0;
+            opacity: 0.4;
+        }
+
+        body::before {
+            top: 10%;
+            left: 15%;
+            background: var(--accent-primary);
+        }
+
+        body::after {
+            bottom: 15%;
+            right: 15%;
+            background: var(--accent-secondary);
+        }
+
+        .login-container {
+            position: relative;
+            z-index: 1;
+            width: 100%;
+            max-width: 420px;
+            padding: 2.5rem;
+            background: var(--glass-bg);
+            border: 1px solid var(--glass-border);
+            border-radius: 24px;
+            backdrop-filter: blur(20px);
+            box-shadow: 0 20px 40px rgba(0, 0, 0, 0.4);
+            animation: fadeIn 0.8s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+        }
+
+        @keyframes fadeIn {
+            from {
+                opacity: 0;
+                transform: translateY(20px);
+            }
+            to {
+                opacity: 1;
+                transform: translateY(0);
+            }
+        }
+
+        .logo-header {
+            text-align: center;
+            margin-bottom: 2rem;
+        }
+
+        .logo-header i {
+            font-size: 3rem;
+            background: linear-gradient(135deg, var(--accent-primary) 0%, var(--accent-secondary) 100%);
+            -webkit-background-clip: text;
+            background-clip: text;
+            -webkit-text-fill-color: transparent;
+            margin-bottom: 0.5rem;
+        }
+
+        .logo-header h1 {
+            font-size: 1.8rem;
+            font-weight: 700;
+            letter-spacing: -0.5px;
+        }
+
+        .logo-header p {
+            color: var(--text-muted);
+            font-size: 0.9rem;
+            margin-top: 0.25rem;
+        }
+
+        .form-group {
+            margin-bottom: 1.5rem;
+            position: relative;
+        }
+
+        .form-group label {
+            display: block;
+            font-size: 0.85rem;
+            font-weight: 500;
+            color: var(--text-muted);
+            margin-bottom: 0.5rem;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+        }
+
+        .input-wrapper {
+            position: relative;
+        }
+
+        .input-wrapper i {
+            position: absolute;
+            left: 1rem;
+            top: 50%;
+            transform: translateY(-50%);
+            color: var(--text-muted);
+            transition: color 0.3s;
+        }
+
+        .form-control {
+            width: 100%;
+            padding: 1rem 1rem 1rem 2.8rem;
+            background: rgba(15, 23, 42, 0.6);
+            border: 1px solid var(--glass-border);
+            border-radius: 12px;
+            color: var(--text-main);
+            font-size: 1rem;
+            transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+        }
+
+        .form-control:focus {
+            outline: none;
+            border-color: var(--accent-primary);
+            box-shadow: 0 0 0 3px rgba(99, 102, 241, 0.2);
+            background: rgba(15, 23, 42, 0.8);
+        }
+
+        .form-control:focus + i {
+            color: var(--accent-primary);
+        }
+
+        .btn-submit {
+            width: 100%;
+            padding: 1rem;
+            background: linear-gradient(135deg, var(--accent-primary) 0%, var(--accent-primary) 50%, var(--accent-secondary) 100%);
+            border: none;
+            border-radius: 12px;
+            color: #fff;
+            font-size: 1rem;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+            margin-top: 0.5rem;
+            box-shadow: 0 4px 15px rgba(99, 102, 241, 0.3);
+        }
+
+        .btn-submit:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 8px 25px rgba(99, 102, 241, 0.5);
+            opacity: 0.95;
+        }
+
+        .btn-submit:active {
+            transform: translateY(0);
+        }
+
+        .error-message {
+            background: rgba(239, 68, 68, 0.1);
+            border: 1px solid rgba(239, 68, 68, 0.2);
+            color: #fca5a5;
+            padding: 0.75rem 1rem;
+            border-radius: 12px;
+            font-size: 0.9rem;
+            margin-bottom: 1.5rem;
+            display: none;
+            align-items: center;
+            gap: 0.5rem;
+            animation: shake 0.5s ease-in-out;
+        }
+
+        @keyframes shake {
+            0%, 100% { transform: translateX(0); }
+            25% { transform: translateX(-5px); }
+            75% { transform: translateX(5px); }
+        }
+
+        .footer-note {
+            text-align: center;
+            margin-top: 2rem;
+            font-size: 0.8rem;
+            color: var(--text-muted);
+        }
+    </style>
+</head>
+<body>
+
+    <div class="login-container">
+        <div class="logo-header">
+            <img src="/static/logo.png" alt="Logo" style="width:64px; height:64px; border-radius:16px; object-fit:cover; margin-bottom:0.5rem;">
+            <h1>Face Recognition Attendance</h1>
+            <p>Admin Portal Sign-In</p>
+        </div>
+
+        <div class="error-message" id="errorBox">
+            <i class="fa-solid fa-triangle-exclamation"></i>
+            <span id="errorText">Invalid username or password</span>
+        </div>
+
+        <form id="loginForm">
+            <div class="form-group">
+                <label for="username">Username</label>
+                <div class="input-wrapper">
+                    <input type="text" id="username" class="form-control" placeholder="Enter username" required autocomplete="username">
+                    <i class="fa-solid fa-user"></i>
+                </div>
+            </div>
+
+            <div class="form-group">
+                <label for="password">Password</label>
+                <div class="input-wrapper">
+                    <input type="password" id="password" class="form-control" placeholder="••••••••" required autocomplete="current-password">
+                    <i class="fa-solid fa-lock"></i>
+                </div>
+            </div>
+
+            <button type="submit" class="btn-submit" id="submitBtn">
+                <span id="btnText">Sign In</span>
+                <i class="fa-solid fa-arrow-right" style="margin-left: 0.5rem;"></i>
+            </button>
+        </form>
+
+        <div class="footer-note">
+            <p>Default credentials: <b>admin</b> / <b>admin123</b></p>
+        </div>
+    </div>
+
+    <script>
+        document.getElementById('loginForm').addEventListener('submit', async (e) => {
+            e.preventDefault();
+            
+            const usernameInput = document.getElementById('username');
+            const passwordInput = document.getElementById('password');
+            const errorBox = document.getElementById('errorBox');
+            const errorText = document.getElementById('errorText');
+            const submitBtn = document.getElementById('submitBtn');
+            const btnText = document.getElementById('btnText');
+            
+            errorBox.style.display = 'none';
+            btnText.textContent = 'Verifying...';
+            submitBtn.disabled = true;
+            
+            try {
+                const response = await fetch('/api/auth/login', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify({
+                        username: usernameInput.value,
+                        password: passwordInput.value
+                    })
+                });
+                
+                const result = await response.json();
+                
+                if (response.ok) {
+                    btnText.textContent = 'Redirecting...';
+                    window.location.href = '/';
+                } else {
+                    errorText.textContent = result.error || 'Login failed';
+                    errorBox.style.display = 'flex';
+                    btnText.textContent = 'Sign In';
+                    submitBtn.disabled = false;
+                }
+            } catch (err) {
+                errorText.textContent = 'Connection error. Please try again.';
+                errorBox.style.display = 'flex';
+                btnText.textContent = 'Sign In';
+                submitBtn.disabled = false;
+            }
+        });
+    </script>
+</body>
+</html>

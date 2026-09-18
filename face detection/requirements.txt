@@ -1,0 +1,9 @@
+flask
+sqlalchemy
+werkzeug
+numpy
+opencv-python
+openpyxl
+reportlab
+setuptools
+qrcode[pil]

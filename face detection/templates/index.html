@@ -1,0 +1,619 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>AI Attendance System</title>
+    <meta name="description" content="AI-powered face recognition attendance management system with real-time analytics and automated parent notifications.">
+    <!-- Google Fonts: Inter -->
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
+    <!-- Font Awesome 6 Icons -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
+    <!-- ApexCharts -->
+    <script src="https://cdn.jsdelivr.net/npm/apexcharts"></script>
+    <!-- QRCode.js for client-side QR generation -->
+    <script src="https://cdn.jsdelivr.net/npm/qrcodejs@1.0.0/qrcode.min.js"></script>
+    <!-- Custom Styles -->
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
+</head>
+<body>
+
+    <!-- MOBILE OVERLAY -->
+    <div class="mobile-overlay" id="mobileOverlay"></div>
+
+    <!-- ====== SIDEBAR ====== -->
+    <aside class="sidebar" id="sidebar">
+        <div class="sidebar-header">
+            <img src="/static/logo.png" alt="Logo" style="width:36px; height:36px; border-radius:8px; object-fit:cover;">
+            <h2>AI Attendance</h2>
+        </div>
+
+        <ul class="sidebar-menu">
+            <li class="menu-item">
+                <a class="menu-link active" data-tab="dashboard" id="nav-dashboard">
+                    <i class="fa-solid fa-grid-2"></i>
+                    <span>Dashboard</span>
+                </a>
+            </li>
+            <li class="menu-item">
+                <a class="menu-link" data-tab="scanner" id="nav-scanner">
+                    <i class="fa-solid fa-camera-retro"></i>
+                    <span>Face Scanner</span>
+                </a>
+            </li>
+            <li class="menu-item">
+                <a class="menu-link" data-tab="students" id="nav-students">
+                    <i class="fa-solid fa-user-group"></i>
+                    <span>Students</span>
+                </a>
+            </li>
+            <li class="menu-item">
+                <a class="menu-link" data-tab="reports" id="nav-reports">
+                    <i class="fa-solid fa-chart-bar"></i>
+                    <span>Reports</span>
+                </a>
+            </li>
+        </ul>
+
+        <div class="sidebar-footer">
+            <div class="user-info">
+                <i class="fa-solid fa-circle-user"></i>
+                <span id="adminUsername">Admin</span>
+            </div>
+            <a href="/api/auth/logout" class="btn-logout" title="Sign Out">
+                <i class="fa-solid fa-right-from-bracket"></i>
+            </a>
+        </div>
+    </aside>
+
+    <!-- ====== TOP NAVBAR ====== -->
+    <nav class="topbar" id="topbar">
+        <div class="topbar-left">
+            <button class="sidebar-toggle" id="sidebarToggle" title="Toggle Sidebar">
+                <i class="fa-solid fa-bars"></i>
+            </button>
+            <div class="search-wrapper">
+                <i class="fa-solid fa-magnifying-glass"></i>
+                <input type="text" class="search-input" id="globalSearch" placeholder="Search students, reports...">
+            </div>
+        </div>
+        <div class="topbar-right">
+            <button class="topbar-btn" onclick="refreshCurrentTab()" title="Refresh Data" id="refreshBtn">
+                <i class="fa-solid fa-arrows-rotate"></i>
+            </button>
+            <button class="topbar-btn" id="notificationBtn" title="Notifications">
+                <i class="fa-solid fa-bell"></i>
+                <span class="notification-badge" id="notifBadge"></span>
+            </button>
+            <button class="topbar-btn" id="darkModeToggle" title="Toggle Dark Mode">
+                <i class="fa-solid fa-moon" id="darkModeIcon"></i>
+            </button>
+            <div class="topbar-divider"></div>
+            <div class="admin-profile" id="adminProfile">
+                <div class="admin-avatar" id="adminAvatar">A</div>
+                <div class="admin-profile-info">
+                    <span class="admin-profile-name" id="adminProfileName">Admin</span>
+                    <span class="admin-profile-role">Administrator</span>
+                </div>
+            </div>
+        </div>
+        
+        <!-- Notification Dropdown -->
+        <div class="notification-dropdown" id="notificationDropdown" style="display: none; position: absolute; top: 100%; right: 1rem; width: 320px; background: var(--bg-card); border: 1px solid var(--border-light); border-radius: 8px; box-shadow: 0 10px 25px rgba(0,0,0,0.2); z-index: 1000; padding: 1rem;">
+            <div style="display: flex; justify-content: space-between; align-items: center; border-bottom: 1px solid var(--border-light); padding-bottom: 0.75rem; margin-bottom: 0.75rem;">
+                <h4 style="margin: 0; color: var(--text-primary); font-size: 1rem;">Notifications</h4>
+                <button onclick="document.getElementById('notificationDropdown').style.display='none'" style="background:none; border:none; color:var(--text-tertiary); cursor:pointer;"><i class="fa-solid fa-xmark"></i></button>
+            </div>
+            <div id="dropdownNotifList" style="max-height: 300px; overflow-y: auto; font-size: 0.85rem; color: var(--text-secondary);">
+                Loading...
+            </div>
+        </div>
+    </nav>
+
+    <!-- ====== TOAST CONTAINER ====== -->
+    <div class="toast-container" id="toastContainer"></div>
+
+    <!-- ====== MAIN CONTENT ====== -->
+    <main class="main-content" id="mainContent">
+
+        <!-- ======== DASHBOARD TAB ======== -->
+        <section id="dashboard-tab" class="tab-content active-tab">
+            <div class="page-header">
+                <div>
+                    <h1>Dashboard</h1>
+                    <p>Real-time analytics and system overview</p>
+                </div>
+                <div style="display:flex; gap:0.5rem; align-items:center;">
+                    <span style="font-size:0.78rem; color:var(--text-tertiary);">Last updated: <span id="lastUpdatedTime">—</span></span>
+                    <button class="btn btn-secondary" onclick="refreshDashboard()" id="dashRefreshBtn"><i class="fa-solid fa-rotate"></i> Refresh</button>
+                </div>
+            </div>
+
+            <!-- KPI Stats Grid — 6 Cards -->
+            <div class="stats-grid" id="statsGrid">
+                <div class="stat-card" data-motion="stat" onclick="drillDown('all')">
+                    <div class="ripple-bg"></div>
+                    <div class="stat-card-header">
+                        <span class="stat-label">Total Students</span>
+                        <div class="stat-icon blue"><i class="fa-solid fa-users"></i></div>
+                    </div>
+                    <div class="stat-val" id="stat-total-students">0</div>
+                    <div class="stat-trend up"><i class="fa-solid fa-arrow-up"></i> Registered</div>
+                </div>
+                <div class="stat-card" data-motion="stat" onclick="drillDown('present')">
+                    <div class="ripple-bg"></div>
+                    <div class="stat-card-header">
+                        <span class="stat-label">Present Today</span>
+                        <div class="stat-icon green"><i class="fa-solid fa-circle-check"></i></div>
+                    </div>
+                    <div class="stat-val" id="stat-present-today">0</div>
+                    <div class="stat-trend up"><i class="fa-solid fa-arrow-up"></i> Today</div>
+                </div>
+                <div class="stat-card" data-motion="stat" onclick="drillDown('absent')">
+                    <div class="ripple-bg"></div>
+                    <div class="stat-card-header">
+                        <span class="stat-label">Absent Today</span>
+                        <div class="stat-icon red"><i class="fa-solid fa-circle-xmark"></i></div>
+                    </div>
+                    <div class="stat-val" id="stat-absent-today">0</div>
+                    <div class="stat-trend down"><i class="fa-solid fa-arrow-down"></i> Today</div>
+                </div>
+                <div class="stat-card" data-motion="stat" onclick="drillDown('attendance-rate')">
+                    <div class="ripple-bg"></div>
+                    <div class="stat-card-header">
+                        <span class="stat-label">Attendance Rate</span>
+                        <div class="stat-icon indigo"><i class="fa-solid fa-percent"></i></div>
+                    </div>
+                    <div class="stat-val" id="stat-attendance-rate">0%</div>
+                    <div class="stat-trend up"><i class="fa-solid fa-chart-line"></i> Overall</div>
+                </div>
+                <div class="stat-card" data-motion="stat" onclick="drillDown('at-risk')">
+                    <div class="ripple-bg"></div>
+                    <div class="stat-card-header">
+                        <span class="stat-label">At-Risk (<75%)</span>
+                        <div class="stat-icon amber"><i class="fa-solid fa-triangle-exclamation"></i></div>
+                    </div>
+                    <div class="stat-val" id="stat-at-risk" style="color:var(--danger-600);">0</div>
+                    <div class="stat-trend down"><i class="fa-solid fa-eye"></i> Monitoring</div>
+                </div>
+                <div class="stat-card" data-motion="stat" onclick="drillDown('accuracy')">
+                    <div class="ripple-bg"></div>
+                    <div class="stat-card-header">
+                        <span class="stat-label">FR Accuracy</span>
+                        <div class="stat-icon cyan"><i class="fa-solid fa-bullseye"></i></div>
+                    </div>
+                    <div class="stat-val" id="stat-accuracy">98.5%</div>
+                    <div class="stat-trend up"><i class="fa-solid fa-bolt"></i> Optimal</div>
+                </div>
+            </div>
+
+            <!-- Charts Row -->
+            <div class="charts-grid" data-motion="chart-row">
+                <div class="glass-card">
+                    <div class="card-title">
+                        <span><i class="fa-solid fa-chart-area" style="margin-right:0.5rem;"></i>Weekly Attendance Trend</span>
+                    </div>
+                    <div class="chart-container">
+                        <div id="weeklyChart"></div>
+                    </div>
+                </div>
+                <div class="glass-card">
+                    <div class="card-title">
+                        <span><i class="fa-solid fa-chart-pie" style="margin-right:0.5rem;"></i>Department Comparison</span>
+                    </div>
+                    <div class="chart-container">
+                        <div id="deptChart"></div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- AI Insights & Real-Time Row -->
+            <div class="charts-grid" data-motion="chart-row">
+                <div class="glass-card ai-insights-panel">
+                    <div class="card-title">
+                        <span><i class="fa-solid fa-sparkles" style="margin-right:0.5rem; color:var(--primary-500);"></i>AI Insights & Forecast</span>
+                    </div>
+                    <div class="ai-insight-item" onclick="drillDown('reports')" style="cursor: pointer;" title="View Reports">
+                        <div class="ai-insight-icon"><i class="fa-solid fa-arrow-trend-up"></i></div>
+                        <div class="ai-insight-content">
+                            <h4>Attendance Forecast</h4>
+                            <p id="aiForecastText">Based on historical data, tomorrow's attendance is predicted to be <strong>88%</strong>.</p>
+                        </div>
+                    </div>
+                    <div class="ai-insight-item" onclick="drillDown('at-risk')" style="cursor: pointer;" title="View At-Risk Students">
+                        <div class="ai-insight-icon warning"><i class="fa-solid fa-triangle-exclamation"></i></div>
+                        <div class="ai-insight-content">
+                            <h4>Student Risk Analysis</h4>
+                            <p id="aiRiskText">5 students in Computer Science are showing a declining attendance trend over the past week.</p>
+                        </div>
+                    </div>
+                    <div class="ai-insight-item" onclick="drillDown('at-risk')" style="cursor: pointer;" title="View At-Risk Students">
+                        <div class="ai-insight-icon success"><i class="fa-solid fa-lightbulb"></i></div>
+                        <div class="ai-insight-content">
+                            <h4>Recommendations</h4>
+                            <p>Send a reminder email to at-risk students to improve overall retention rates.</p>
+                        </div>
+                    </div>
+                </div>
+                <div class="glass-card">
+                    <div class="card-title">
+                        <span><i class="fa-solid fa-chart-line" style="margin-right:0.5rem;"></i>AI Attendance Prediction</span>
+                    </div>
+                    <div class="chart-container">
+                        <div id="predictionChart"></div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Recent Activity + Notifications Row -->
+            <div class="charts-grid" data-motion="chart-row">
+                <div class="glass-card">
+                    <div class="card-title">
+                        <span><i class="fa-solid fa-clock-rotate-left" style="margin-right:0.5rem;"></i>Real-Time Activity Logs</span>
+                        <button class="btn btn-secondary" onclick="loadRecentActivity()" style="padding:0.3rem 0.6rem; font-size:0.72rem;"><i class="fa-solid fa-rotate"></i></button>
+                    </div>
+                    <div id="recentActivityList" style="max-height:260px; overflow-y:auto; padding-right:0.5rem;">
+                        <p class="text-secondary text-sm" style="text-align:center; padding:2rem 0;">Loading activity...</p>
+                    </div>
+                </div>
+                <div class="glass-card">
+                    <div class="card-title">
+                        <span><span class="live-dot"></span>Live Parent Alerts</span>
+                        <button class="btn btn-secondary" onclick="loadNotifications()" style="padding:0.3rem 0.6rem; font-size:0.72rem;"><i class="fa-solid fa-rotate"></i></button>
+                    </div>
+                    <div class="notification-log-box" id="notificationLogBox" style="max-height:260px;">
+                        Loading notification feed...
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <!-- ======== SCANNER TAB ======== -->
+        <section id="scanner-tab" class="tab-content">
+            <div class="page-header">
+                <div>
+                    <h1>Face Scanner</h1>
+                    <p>Real-time face recognition and QR code verification</p>
+                </div>
+            </div>
+
+            <div class="scanner-container">
+                <div class="glass-card">
+                    <div class="camera-wrapper">
+                        <video id="webcamVideo" autoplay playsinline muted class="camera-feed"></video>
+                        <canvas id="overlayCanvas" class="overlay-canvas"></canvas>
+                        <div id="cameraPlaceholder" style="position:absolute; text-align:center; color:var(--text-secondary);">
+                            <i class="fa-solid fa-video" style="font-size:2.5rem; margin-bottom:0.75rem; color:var(--primary-400);"></i>
+                            <p style="font-weight:500;">Camera is off</p>
+                            <p style="font-size:0.8rem; color:var(--text-tertiary); margin-top:0.25rem;">Click Start Scanner to begin</p>
+                        </div>
+                    </div>
+                    <div class="camera-controls">
+                        <button class="btn btn-primary" id="startScanBtn"><i class="fa-solid fa-play"></i> Start Scanner</button>
+                        <button class="btn btn-danger" id="stopScanBtn" disabled><i class="fa-solid fa-stop"></i> Stop Scanner</button>
+                    </div>
+                </div>
+
+                <div class="scanner-sidebar">
+                    <div class="glass-card" style="margin-bottom:0;">
+                        <div class="card-title" style="margin-bottom:0.75rem;">
+                            <span><i class="fa-solid fa-sliders" style="margin-right:0.5rem;"></i>Settings</span>
+                        </div>
+                        <div class="form-group-custom" style="margin-bottom:0.75rem;">
+                            <label>Subject</label>
+                            <select id="scanSubject" class="form-input">
+                                <option value="Machine Learning">Machine Learning</option>
+                                <option value="Computer Vision">Computer Vision</option>
+                                <option value="Database Systems">Database Systems</option>
+                                <option value="Software Engineering">Software Engineering</option>
+                                <option value="General">General/Other</option>
+                            </select>
+                        </div>
+                        <div class="form-group-custom" style="margin-bottom:0.75rem;">
+                            <label>Verification Mode</label>
+                            <select id="scanMode" class="form-input">
+                                <option value="face_only">Face Recognition Mode</option>
+                                <option value="qr_only">QR Code</option>
+                            </select>
+                        </div>
+
+                        <div class="form-group-custom" style="margin-bottom:0.75rem;">
+                            <label style="display:flex; justify-content:space-between;">
+                                <span>Liveness Threshold</span>
+                                <span id="livenessThresholdVal" style="font-weight:700; color:var(--primary-500);">100</span>
+                            </label>
+                            <input type="range" id="livenessThresholdSlider" min="30" max="300" value="100" class="form-input" style="padding:0; accent-color:var(--primary-500);">
+                        </div>
+                        <div class="form-group-custom" style="flex-direction:row; justify-content:space-between; align-items:center;">
+                            <label style="margin-bottom:0;">Anti-Spoofing</label>
+                            <input type="checkbox" id="scanAntiSpoof" checked style="width:16px; height:16px; accent-color:var(--primary-500);">
+                        </div>
+                    </div>
+
+                    <div class="scanner-logs-panel">
+                        <div class="scanner-logs-title">
+                            <span><span class="live-dot"></span>Scan Results</span>
+                            <i class="fa-solid fa-wave-square" style="color:var(--primary-400);"></i>
+                        </div>
+                        <ul class="logs-list" id="scanLogsList">
+                            <li class="log-entry" style="color:var(--text-secondary); justify-content:center; border:none; font-size:0.82rem;">No scans yet</li>
+                        </ul>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <!-- ======== STUDENTS TAB ======== -->
+        <section id="students-tab" class="tab-content">
+            <div class="page-header">
+                <div>
+                    <h1>Student Directory</h1>
+                    <p>Manage student profiles, face data, and QR codes</p>
+                </div>
+                <button class="btn btn-primary" onclick="openAddStudentModal()" id="addStudentBtn"><i class="fa-solid fa-user-plus"></i> Add Student</button>
+            </div>
+
+            <div class="glass-card">
+                <!-- Search & Filter Bar -->
+                <div style="display:flex; gap:1rem; margin-bottom:1.25rem; flex-wrap:wrap;">
+                    <div class="form-group-custom" style="flex-grow:1; min-width:200px;">
+                        <input type="text" id="studentSearchInput" class="form-input" placeholder="🔍  Search by name, roll number, or department...">
+                    </div>
+                    <div class="form-group-custom" style="min-width:140px;">
+                        <select id="studentDeptFilter" class="form-input">
+                            <option value="">All Departments</option>
+                            <option value="Computer Science">Computer Science</option>
+                            <option value="Information Technology">Information Technology</option>
+                            <option value="Electronics Eng">Electronics Eng</option>
+                            <option value="Mechanical Eng">Mechanical Eng</option>
+                        </select>
+                    </div>
+                </div>
+
+                <!-- Table -->
+                <div class="table-wrapper">
+                    <table class="custom-table" id="studentsTable">
+                        <thead>
+                            <tr>
+                                <th>Student</th>
+                                <th>Roll Number</th>
+                                <th>Department</th>
+                                <th>Today's Status</th>
+                                <th>Attendance</th>
+                                <th style="text-align:center;">Actions</th>
+                            </tr>
+                        </thead>
+                        <tbody id="studentsTableBody">
+                            <tr>
+                                <td colspan="7" style="text-align:center; color:var(--text-secondary); padding:2rem;">Loading students...</td>
+                            </tr>
+                        </tbody>
+                    </table>
+                </div>
+
+                <!-- Pagination -->
+                <div class="pagination-wrapper" id="studentsPagination">
+                    <div class="pagination-info" id="paginationInfo">Showing 0 students</div>
+                    <div class="pagination-controls" id="paginationControls"></div>
+                </div>
+            </div>
+        </section>
+
+        <!-- ======== REPORTS TAB ======== -->
+        <section id="reports-tab" class="tab-content">
+            <div class="page-header">
+                <div>
+                    <h1>Attendance Reports</h1>
+                    <p>Inspect daily logs and download export files</p>
+                </div>
+            </div>
+
+            <div class="glass-card">
+                <!-- Filters -->
+                <div class="form-grid">
+                    <div class="form-group-custom">
+                        <label>Subject</label>
+                        <select id="reportFilterSubject" class="form-input">
+                            <option value="">All Subjects</option>
+                            <option value="Machine Learning">Machine Learning</option>
+                            <option value="Computer Vision">Computer Vision</option>
+                            <option value="Database Systems">Database Systems</option>
+                            <option value="Software Engineering">Software Engineering</option>
+                            <option value="General">General/Other</option>
+                        </select>
+                    </div>
+                    <div class="form-group-custom">
+                        <label>Start Date</label>
+                        <input type="date" id="reportStartDate" class="form-input">
+                    </div>
+                    <div class="form-group-custom">
+                        <label>End Date</label>
+                        <input type="date" id="reportEndDate" class="form-input">
+                    </div>
+                    <div class="form-group-custom" style="justify-content:flex-end;">
+                        <div style="display:flex; gap:0.5rem;">
+                            <button class="btn btn-secondary" onclick="clearReportFilters()"><i class="fa-solid fa-filter-circle-xmark"></i> Clear</button>
+                            <button class="btn btn-primary" onclick="loadReportData()"><i class="fa-solid fa-magnifying-glass"></i> Filter</button>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Export Bar -->
+                <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:1.25rem; padding-top:1rem; border-top:1px solid var(--border-light);">
+                    <div style="color:var(--text-secondary); font-size:0.82rem;" id="reportRecordCount">0 records found</div>
+                    <div class="export-group">
+                        <button class="btn-export excel" onclick="exportReport('excel')"><i class="fa-solid fa-file-excel"></i> Excel</button>
+                        <button class="btn-export pdf" onclick="exportReport('pdf')"><i class="fa-solid fa-file-pdf"></i> PDF</button>
+                        <button class="btn-export csv" onclick="exportCSV()"><i class="fa-solid fa-file-csv"></i> CSV</button>
+                    </div>
+                </div>
+
+                <!-- Table -->
+                <div class="table-wrapper">
+                    <table class="custom-table" id="reportsTable">
+                        <thead>
+                            <tr>
+                                <th>Timestamp</th>
+                                <th>Roll Number</th>
+                                <th>Student Name</th>
+                                <th>Department</th>
+                                <th>Subject</th>
+                                <th>Status</th>
+                            </tr>
+                        </thead>
+                        <tbody id="reportsTableBody">
+                            <tr>
+                                <td colspan="6" style="text-align:center; color:var(--text-secondary); padding:2rem;">Apply filters to load records...</td>
+                            </tr>
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </section>
+
+    </main>
+
+    <!-- ====== ADD STUDENT MODAL ====== -->
+    <div class="modal-backdrop" id="addStudentModal">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h3>Add New Student</h3>
+                <button class="modal-close" onclick="closeAddStudentModal()"><i class="fa-solid fa-xmark"></i></button>
+            </div>
+            <form id="addStudentForm">
+                <div class="form-group-custom" style="margin-bottom:1rem;">
+                    <label>Roll Number *</label>
+                    <input type="text" id="addStudentRoll" class="form-input" placeholder="e.g. CS-004" required>
+                </div>
+                <div class="form-group-custom" style="margin-bottom:1rem;">
+                    <label>Full Name *</label>
+                    <input type="text" id="addStudentName" class="form-input" placeholder="e.g. John Doe" required>
+                </div>
+                <div class="form-group-custom" style="margin-bottom:1rem;">
+                    <label>Email Address</label>
+                    <input type="email" id="addStudentEmail" class="form-input" placeholder="e.g. john@university.edu">
+                </div>
+                <div class="form-group-custom" style="margin-bottom:1rem;">
+                    <label>Department / Class</label>
+                    <select id="addStudentDept" class="form-input">
+                        <option value="Computer Science">Computer Science</option>
+                        <option value="Information Technology">Information Technology</option>
+                        <option value="Electronics Eng">Electronics Eng</option>
+                        <option value="Mechanical Eng">Mechanical Eng</option>
+                    </select>
+                </div>
+                <div class="form-grid" style="margin-bottom:1.25rem;">
+                    <div class="form-group-custom">
+                        <label>Parent Email</label>
+                        <input type="email" id="addStudentParentEmail" class="form-input" placeholder="parent@mail.com">
+                    </div>
+                    <div class="form-group-custom">
+                        <label>Parent Phone</label>
+                        <input type="text" id="addStudentParentPhone" class="form-input" placeholder="+15550100">
+                    </div>
+                </div>
+                <div style="display:flex; justify-content:flex-end; gap:0.5rem;">
+                    <button type="button" class="btn btn-secondary" onclick="closeAddStudentModal()">Cancel</button>
+                    <button type="submit" class="btn btn-primary"><i class="fa-solid fa-check"></i> Save Student</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- ====== EDIT STUDENT MODAL ====== -->
+    <div class="modal-backdrop" id="editStudentModal">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h3>Edit Student</h3>
+                <button class="modal-close" onclick="closeEditStudentModal()"><i class="fa-solid fa-xmark"></i></button>
+            </div>
+            <form id="editStudentForm">
+                <input type="hidden" id="editStudentId">
+                <div class="form-group-custom" style="margin-bottom:1rem;">
+                    <label>Roll Number *</label>
+                    <input type="text" id="editStudentRoll" class="form-input" required>
+                </div>
+                <div class="form-group-custom" style="margin-bottom:1rem;">
+                    <label>Full Name *</label>
+                    <input type="text" id="editStudentName" class="form-input" required>
+                </div>
+                <div class="form-group-custom" style="margin-bottom:1rem;">
+                    <label>Email Address</label>
+                    <input type="email" id="editStudentEmail" class="form-input">
+                </div>
+                <div class="form-group-custom" style="margin-bottom:1rem;">
+                    <label>Department / Class</label>
+                    <select id="editStudentDept" class="form-input">
+                        <option value="Computer Science">Computer Science</option>
+                        <option value="Information Technology">Information Technology</option>
+                        <option value="Electronics Eng">Electronics Eng</option>
+                        <option value="Mechanical Eng">Mechanical Eng</option>
+                    </select>
+                </div>
+                <div class="form-grid" style="margin-bottom:1.25rem;">
+                    <div class="form-group-custom">
+                        <label>Parent Email</label>
+                        <input type="email" id="editStudentParentEmail" class="form-input">
+                    </div>
+                    <div class="form-group-custom">
+                        <label>Parent Phone</label>
+                        <input type="text" id="editStudentParentPhone" class="form-input">
+                    </div>
+                </div>
+                <div style="display:flex; justify-content:flex-end; gap:0.5rem;">
+                    <button type="button" class="btn btn-secondary" onclick="closeEditStudentModal()">Cancel</button>
+                    <button type="submit" class="btn btn-primary"><i class="fa-solid fa-check"></i> Update Student</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- ====== FACE REGISTRATION MODAL ====== -->
+    <div class="modal-backdrop" id="faceRegisterModal">
+        <div class="modal-content">
+            <div class="modal-header">
+                <div>
+                    <h3>Face Registration</h3>
+                    <p style="font-size:0.78rem; color:var(--text-secondary); margin-top:0.15rem;" id="registerFaceStudentName">Student: —</p>
+                </div>
+                <button class="modal-close" onclick="closeFaceRegisterModal()"><i class="fa-solid fa-xmark"></i></button>
+            </div>
+
+            <div class="registration-cam-wrapper">
+                <video id="registerVideo" autoplay playsinline muted class="camera-feed" style="width:100%; height:100%; object-fit:cover;"></video>
+                <div id="registerVideoPlaceholder" style="position:absolute; top:0; left:0; width:100%; height:100%; display:flex; align-items:center; justify-content:center; color:var(--text-secondary); background:var(--gray-100);">
+                    <p>Starting camera...</p>
+                </div>
+            </div>
+
+            <div style="display:flex; justify-content:space-between; align-items:center;">
+                <span style="font-size:0.75rem; color:var(--text-tertiary);">Center face and capture</span>
+                <div style="display:flex; gap:0.5rem;">
+                    <button type="button" class="btn btn-secondary" onclick="closeFaceRegisterModal()">Cancel</button>
+                    <button type="button" class="btn btn-primary" id="captureFaceBtn"><i class="fa-solid fa-camera"></i> Capture</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- ====== QR CODE MODAL ====== -->
+    <div class="modal-backdrop" id="studentQrModal">
+        <div class="modal-content" style="max-width:340px;">
+            <div class="modal-header">
+                <h3 id="qrModalTitle">Student QR Code</h3>
+                <button class="modal-close" onclick="closeQrModal()"><i class="fa-solid fa-xmark"></i></button>
+            </div>
+            <div class="qr-modal-image-wrapper">
+                <div id="qrModalCanvas" style="display:inline-block;"></div>
+            </div>
+            <p style="font-size:0.78rem; color:var(--text-secondary); text-align:center; margin-bottom:1rem;" id="qrModalSubtitle">Roll: —</p>
+            <div style="display:flex; justify-content:center;">
+                <button type="button" class="btn btn-secondary" id="downloadQrBtn"><i class="fa-solid fa-download"></i> Download QR</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- App Script -->
+    <script src="/static/js/app.js?v=7"></script>
+</body>
+</html>
